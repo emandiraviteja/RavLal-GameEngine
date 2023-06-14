@@ -1,66 +1,136 @@
 package com.ravlal.ravlal_gameengine;
 
-import com.ravlal.ravlal_gameengine.engine.Engine;
-import com.ravlal.ravlal_gameengine.input.sensor.AccelerationController;
-import com.ravlal.ravlal_gameengine.input.sensor.OrientationController;
+import com.ravlal.ravlal_gameengine.engine.GameEngine;
+import com.ravlal.ravlal_gameengine.input.TouchController;
+import com.ravlal.ravlal_gameengine.level.Level;
+import com.ravlal.ravlal_gameengine.sound.SoundManager;
 import com.ravlal.ravlal_gameengine.ui.GameActivity;
-import com.ravlal.ravlal_gameengine.ui.GameView;
 
-/**
- * Created by Raviteja Emandi on 14,June,2023
- **/
+import java.util.Random;
 
 public class Game {
-    protected final GameActivity mActivity;
-    protected final Engine mEngine;
 
-    //--------------------------------------------------------
-    // Constructors
-    //--------------------------------------------------------
+    private static boolean sDebugMode = false;
+
+    private final GameActivity mActivity;
+    private final GameView mGameView;
+    private final GameEngine mGameEngine;
+    private final int mScreenWidth;
+    private final int mScreenHeight;
+    private final Random mRandom = new Random();
+
+    private TouchController mTouchController;
+    private SoundManager mSoundManager;
+    private Level mLevel;
+    private float mPixelFactor;
+
     public Game(GameActivity activity, GameView gameView) {
         mActivity = activity;
-        mEngine = new Engine(gameView);
+        mGameView = gameView;
+        mGameEngine = new GameEngine(gameView);
+        mScreenWidth = gameView.getWidth();
+        mScreenHeight = gameView.getHeight();
     }
-    //========================================================
 
     //--------------------------------------------------------
     // Getter and Setter
     //--------------------------------------------------------
-    public GameActivity getActivity() {
+    public GameActivity getGameActivity() {
         return mActivity;
     }
 
-    public Engine getEngine() {
-        return mEngine;
+    public GameEngine getGameEngine() {
+        return mGameEngine;
+    }
+
+    public int getScreenWidth() {
+        return mScreenWidth;
+    }
+
+    public int getScreenHeight() {
+        return mScreenHeight;
+    }
+
+    public Random getRandom() {
+        return mRandom;
+    }
+
+    public float getPixelFactor() {
+        if (mPixelFactor > 0) {
+            return mPixelFactor;
+        } else {
+            throw new IllegalStateException("PixelFactor must be larger than 0!");
+        }
+    }
+
+    public void setPixelFactor(float basePixel) {
+        mPixelFactor = mScreenWidth / basePixel;
+    }
+
+    public TouchController getTouchController() {
+        if (mTouchController != null) {
+            return mTouchController;
+        } else {
+            throw new IllegalStateException("You need to initialize the TouchController!");
+        }
+    }
+
+    public void setTouchController(TouchController touchController) {
+        mTouchController = touchController;
+        mGameView.setOnTouchListener(touchController);
+    }
+
+    public SoundManager getSoundManager() {
+        if (mSoundManager != null) {
+            return mSoundManager;
+        } else {
+            throw new IllegalStateException("You need to initialize the SoundManager!");
+        }
+    }
+
+    public void setSoundManager(SoundManager soundManager) {
+        mSoundManager = soundManager;
+    }
+
+    public Level getLevel() {
+        if (mLevel != null) {
+            return mLevel;
+        } else {
+            throw new IllegalStateException("You need to initialize the Level!");
+        }
+    }
+
+    public void setLevel(Level level) {
+        mLevel = level;
     }
     //========================================================
 
     //--------------------------------------------------------
-    // Methods
+    // Methods to change state of game
+    // start, stop, pause, resume
     //--------------------------------------------------------
     public final void start() {
-        mEngine.startGame();
+        mGameEngine.startGame();
         onStart();
     }
 
     public final void stop() {
-        if (mEngine.isRunning()) {
-            mEngine.stopGame();
-            mEngine.disposeGame();
+        if (mGameEngine.isRunning()) {
+            mGameEngine.stopGame();
             onStop();
         }
     }
 
     public final void pause() {
-        if (mEngine.isRunning() && !mEngine.isPaused()) {
-            mEngine.pauseGame();
+        if (mGameEngine.isRunning() && !mGameEngine.isPaused()) {
+            mGameEngine.pauseGame();
             onPause();
         }
     }
 
     public final void resume() {
-        if (mEngine.isRunning() && mEngine.isPaused()) {
-            mEngine.resumeGame();
+        if (mGameEngine.isRunning() && mGameEngine.isPaused()) {
+            mGameEngine.resumeGame();
             onResume();
         }
     }
@@ -76,27 +146,14 @@ public class Game {
 
     protected void onResume() {
     }
-
-    public void enableAccelerationSensor() {
-        mEngine.setAccelerationController(new AccelerationController(mActivity));
-    }
-
-    public void disableAccelerationSensor() {
-        if (mEngine.getAccelerationController() != null) {
-            mEngine.getAccelerationController().stop();
-        }
-        mEngine.setAccelerationController(null);
-    }
-
-    public void enableOrientationSensor() {
-        mEngine.setOrientationController(new OrientationController(mActivity));
-    }
-
-    public void disableOrientationSensor() {
-        if (mEngine.getOrientationController() != null) {
-            mEngine.getOrientationController().stop();
-        }
-        mEngine.setOrientationController(null);
-    }
     //========================================================
+
+    public static boolean getDebugMode() {
+        return sDebugMode;
+    }
+
+    public static void setDebugMode(boolean debugMode) {
+        sDebugMode = debugMode;
+    }
+
 }

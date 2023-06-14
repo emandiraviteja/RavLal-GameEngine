@@ -6,31 +6,8 @@ import android.view.ViewTreeObserver;
 
 import androidx.fragment.app.Fragment;
 
-/**
- * Created by Raviteja Emandi on 14,June,2023
- */
-
 public class GameFragment extends Fragment {
 
-    //--------------------------------------------------------
-    // Constructors
-    //--------------------------------------------------------
-    public GameFragment() {
-        // Required empty public constructor
-    }
-    //========================================================
-
-    //--------------------------------------------------------
-    // Getter and Setter
-    //--------------------------------------------------------
-    public GameActivity getGameActivity() {
-        return (GameActivity) getActivity();
-    }
-    //========================================================
-
-    //--------------------------------------------------------
-    // Overriding methods
-    //--------------------------------------------------------
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -42,26 +19,25 @@ public class GameFragment extends Fragment {
                 ViewTreeObserver viewTreeObserver = view.getViewTreeObserver();
                 if (viewTreeObserver.isAlive()) {
                     viewTreeObserver.removeOnGlobalLayoutListener(this);
-                    onLayoutCreated(view);
+                    onLayoutCreated();
                 }
             }
         });
     }
-    //========================================================
 
-    //--------------------------------------------------------
-    // Methods
-    //--------------------------------------------------------
-    protected void onLayoutCreated(View view) {
+    protected void onLayoutCreated() {
     }
 
     public boolean onBackPressed() {
         return false;
     }
 
+    public GameActivity getGameActivity() {
+        return (GameActivity) getActivity();
+    }
+
     public void showDialog(GameDialog newDialog) {
         getGameActivity().showDialog(newDialog);
     }
-    //========================================================
 
 }

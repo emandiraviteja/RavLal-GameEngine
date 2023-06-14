@@ -9,49 +9,33 @@ import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 
-/**
- * Created by Raviteja Emandi on 14,June,2023
- */
-
 public class GameDialog implements OnTouchListener, Animation.AnimationListener {
 
     protected final GameActivity mParent;
+    private ViewGroup mRootLayout;
+    private View mRootView;
+    private int mRootLayoutId;
 
-    private ViewGroup mContainerView;
-    private View mContentView;
-    private int mContainerViewId;
     private int mEnterAnimationId;
     private int mExitAnimationId;
 
     private boolean mIsShowing = false;
     private boolean mIsHiding = true;
 
-    //--------------------------------------------------------
-    // Constructors
-    //--------------------------------------------------------
-    public GameDialog(GameActivity activity) {
+    protected GameDialog(GameActivity activity) {
         mParent = activity;
     }
-    //========================================================
 
     //--------------------------------------------------------
-    // Getter and Setter
+    // Methods to init the dialog
     //--------------------------------------------------------
-    public boolean isShowing() {
-        return mIsShowing;
-    }
-
-    protected View getContentView() {
-        return mContentView;
-    }
-
     protected void setContentView(int layoutId) {
         ViewGroup activityRoot = (ViewGroup) mParent.findViewById(android.R.id.content);
-        mContentView = LayoutInflater.from(mParent).inflate(layoutId, activityRoot, false);
+        mRootView = LayoutInflater.from(mParent).inflate(layoutId, activityRoot, false);
     }
 
-    protected void setContainerView(int containerViewId) {
-        mContainerViewId = containerViewId;
+    protected void setRootLayoutId(int rootLayoutId) {
+        mRootLayoutId = rootLayoutId;
     }
 
     protected void setEnterAnimationId(int enterAnimationId) {
@@ -61,40 +45,13 @@ public class GameDialog implements OnTouchListener, Animation.AnimationListener 
     protected void setExitAnimationId(int exitAnimationId) {
         mExitAnimationId = exitAnimationId;
     }
-
-    protected View findViewById(int id) {
-        // Important to not use this method before layout created
-        return mContentView.findViewById(id);
-    }
     //========================================================
 
     //--------------------------------------------------------
-    // Overriding methods
+    // Methods to change state of dialog
+    // show, dismiss and hide
     //--------------------------------------------------------
-    @Override
-    public boolean onTouch(View view, MotionEvent event) {
-        // We ignore touch event outside the dialog
-        return true;
-    }
-
-    @Override
-    public void onAnimationStart(Animation animation) {
-    }
-
-    @Override
-    public void onAnimationEnd(Animation animation) {
-        hide();
-    }
-
-    @Override
-    public void onAnimationRepeat(Animation animation) {
-    }
-    //========================================================
-
-    //--------------------------------------------------------
-    // Methods
-    //--------------------------------------------------------
-    public void show() {
+    public final void show() {
         if (mIsShowing) {
             return;
         }
@@ -102,30 +59,25 @@ public class GameDialog implements OnTouchListener, Animation.AnimationListener 
         mIsHiding = false;
 
         ViewGroup activityRoot = (ViewGroup) mParent.findViewById(android.R.id.content);
-        mContainerView = (ViewGroup) LayoutInflater.from(mParent).inflate(mContainerViewId, activityRoot, false);
-        activityRoot.addView(mContainerView);
-        mContainerView.setOnTouchListener(this);
-        mContainerView.addView(mContentView);
-        startEnterAnimation();
+        mRootLayout = (ViewGroup) LayoutInflater.from(mParent).inflate(mRootLayoutId, activityRoot, false);
+        activityRoot.addView(mRootLayout);
+        mRootLayout.setOnTouchListener(this);
+        mRootLayout.addView(mRootView);
+        startShowAnimation();
         onShow();
     }
 
-    public void dismiss() {
-        if (!mIsShowing || mIsHiding) {
+    public final void dismiss() {
+        if (!mIsShowing) {
+            return;
+        }
+        if (mIsHiding) {
             return;
         }
         mIsHiding = true;
         mParent.dismissDialog();
-        startExitAnimation();
+        startHideAnimation();
         onDismiss();
-    }
-
-    private void hide() {
-        mIsShowing = false;
-        mContainerView.removeView(mContentView);
-        ViewGroup activityRoot = (ViewGroup) mParent.findViewById(android.R.id.content);
-        activityRoot.removeView(mContainerView);
-        onHide();
     }
 
     protected void onShow() {
@@ -137,23 +89,59 @@ public class GameDialog implements OnTouchListener, Animation.AnimationListener 
     protected void onHide() {
     }
 
-    private void startEnterAnimation() {
+    public boolean isShowing() {
+        return mIsShowing;
+    }
+    //========================================================
+
+    private void startShowAnimation() {
         if (mEnterAnimationId == 0) {
             return;
         }
-        Animation animation = AnimationUtils.loadAnimation(mParent, mEnterAnimationId);
-        mContentView.startAnimation(animation);
+        Animation enterAnimation = AnimationUtils.loadAnimation(mParent, mEnterAnimationId);
+        mRootView.startAnimation(enterAnimation);
     }
 
-    private void startExitAnimation() {
+    private void startHideAnimation() {
         if (mExitAnimationId == 0) {
-            hide();
+            hideViews();
             return;
         }
-        Animation animation = AnimationUtils.loadAnimation(mParent, mExitAnimationId);
-        animation.setAnimationListener(this);
-        mContentView.startAnimation(animation);
+        Animation exitAnimation = AnimationUtils.loadAnimation(mParent, mExitAnimationId);
+        exitAnimation.setAnimationListener(this);
+        mRootView.startAnimation(exitAnimation);
     }
-    //========================================================
+
+    private void hideViews() {
+        mIsShowing = false;
+        mRootLayout.removeView(mRootView);
+        ViewGroup activityRoot = (ViewGroup) mParent.findViewById(android.R.id.content);
+        activityRoot.removeView(mRootLayout);
+        onHide();
+    }
+
+    protected View findViewById(int id) {
+        // Important to not use this method before layout created
+        return mRootView.findViewById(id);
+    }
+
+    @Override
+    public boolean onTouch(View view, MotionEvent event) {
+        // We ignore touch events outside the dialog
+        return true;
+    }
+
+    @Override
+    public void onAnimationStart(Animation animation) {
+    }
+
+    @Override
+    public void onAnimationEnd(Animation animation) {
+        hideViews();
+    }
+
+    @Override
+    public void onAnimationRepeat(Animation animation) {
+    }
 
 }

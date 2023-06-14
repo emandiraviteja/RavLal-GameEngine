@@ -2,12 +2,10 @@ package com.ravlal.ravlal_gameengine.entity.particles.initializer;
 
 import com.ravlal.ravlal_gameengine.entity.particles.Particle;
 
-/**
- * Created by Raviteja Emandi on 14,June,2023
- */
+import java.util.Random;
 
 public interface ParticleInitializer {
 
-    void initParticle(Particle particle);
+    void initParticle(Particle particle, Random random);
 
 }

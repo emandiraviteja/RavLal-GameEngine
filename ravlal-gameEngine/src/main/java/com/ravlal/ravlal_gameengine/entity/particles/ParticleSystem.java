@@ -1,104 +1,99 @@
 package com.ravlal.ravlal_gameengine.entity.particles;
 
-import com.ravlal.ravlal_gameengine.engine.Engine;
-import com.ravlal.ravlal_gameengine.entity.Entity;
-import com.ravlal.ravlal_gameengine.entity.modifier.DurationModifier;
-import com.ravlal.ravlal_gameengine.entity.modifier.Modifier;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.AccelerationXParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.AccelerationYParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.DurationParticleInitialize;
+import com.ravlal.ravlal_gameengine.Game;
+import com.ravlal.ravlal_gameengine.entity.GameObject;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.AccelerationXInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.AccelerationYInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.AlphaInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.DurationInitialize;
 import com.ravlal.ravlal_gameengine.entity.particles.initializer.ParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.RotationParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.RotationSpeedParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedXParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedYParticleInitializer;
-import com.ravlal.ravlal_gameengine.entity.particles.modifier.AlphaParticleModifier;
-import com.ravlal.ravlal_gameengine.entity.particles.modifier.ParticleModifier;
-import com.ravlal.ravlal_gameengine.entity.particles.modifier.RotationParticleModifier;
-import com.ravlal.ravlal_gameengine.entity.particles.modifier.ScaleParticleModifier;
-import com.ravlal.ravlal_gameengine.texture.Texture;
-import com.ravlal.ravlal_gameengine.util.math.RandomUtils;
-import com.ravlal.ravlal_gameengine.util.pool.ObjectPool;
-import com.ravlal.ravlal_gameengine.util.pool.Pool;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.RotationInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.RotationSpeedInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.ScaleInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedAngleInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedXInitializer;
+import com.ravlal.ravlal_gameengine.entity.particles.initializer.SpeedYInitializer;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
-/**
- * Created by Raviteja Emandi on 14,June,2023
- */
-
-public class ParticleSystem extends Entity implements Modifier.ModifierListener {
+public class ParticleSystem extends GameObject {
 
     public static final int RATE_LOW = 10;
     public static final int RATE_NORMAL = 20;
     public static final int RATE_HIGH = 50;
-    public static final long INFINITE = -1;
 
-    private final Pool<Particle> mParticlePool;
-    private final DurationModifier mDurationModifier;
+    private final float mPixelFactor;
+    private final Random mRandom;
 
-    private int mLayer;
+    private final List<ParticleInitializer> mInitializers = new ArrayList<>();
+    private final List<Particle> mParticlePool = new ArrayList<>();
+
+    private float mEmissionX;
+    private float mEmissionY;
     private float mEmissionMinX;
     private float mEmissionMaxX;
     private float mEmissionMinY;
     private float mEmissionMaxY;
-    private long mEmissionRate = 1000 / RATE_NORMAL;
-    private long mEmissionDuration = INFINITE;
+    private int mLayer;
+
+    private long mTimePerParticles = 1000 / RATE_NORMAL;
+    private long mDuration;
+    private long mCurrentDuration;
     private long mTotalTime;
-    private boolean mIsEmitting = false;
 
-    private final List<ParticleInitializer> mInitializers = new ArrayList<>();
-    private final List<ParticleModifier> mModifiers = new ArrayList<>();
+    private boolean mIsEmitting;
 
-    //--------------------------------------------------------
-    // Constructors
-    //--------------------------------------------------------
-    public ParticleSystem(Engine engine, Texture texture, int minParticle) {
-        this(engine, texture, minParticle, minParticle);
+    public ParticleSystem(Game game, int[] drawableIds, int size) {
+        super(game);
+        mPixelFactor = game.getPixelFactor();
+        mRandom = game.getRandom();
+        // We add them to the pool now
+        for (int i = 0; i < size; i++) {
+            // Generate a random int from [0, length - 1]
+            int random = (int) (mRandom.nextFloat() * drawableIds.length);
+            mParticlePool.add(new Particle(this, game, drawableIds[random]));
+        }
     }
 
-    public ParticleSystem(Engine engine, Texture texture, int minParticle, int maxParticle) {
-        super(engine);
-        mParticlePool = new ObjectPool<>(new Pool.PoolObjectFactory<Particle>() {
-            @Override
-            public Particle createObject() {
-                return new Particle(ParticleSystem.this, engine, texture);
-            }
-        }, minParticle, maxParticle);
-        mDurationModifier = new DurationModifier(INFINITE);
-        mDurationModifier.setListener(this);
+    public ParticleSystem(Game game, int drawableId, int size) {
+        this(game, new int[]{drawableId}, size);
     }
-    //========================================================
 
-    //--------------------------------------------------------
-    // Getter and Setter
-    //--------------------------------------------------------
     public ParticleSystem setLayer(int layer) {
         mLayer = layer;
         return this;
     }
 
-    public ParticleSystem setEmissionRate(int particlePerSecond) {
-        mEmissionRate = 1000 / particlePerSecond;
+    public ParticleSystem setDuration(long duration) {
+        mDuration = duration;
         return this;
     }
 
-    public ParticleSystem setEmissionDuration(long duration) {
-        mEmissionDuration = duration;
+    public ParticleSystem setDurationPerParticle(long duration) {
+        mInitializers.add(new DurationInitialize(duration));
+        return this;
+    }
+
+    public ParticleSystem setEmissionRate(int particlesPerSecond) {
+        mTimePerParticles = 1000 / particlesPerSecond;
+        return this;
+    }
+
+    public ParticleSystem setEmissionPosition(float x, float y) {
+        mEmissionX = x;
+        mEmissionY = y;
         return this;
     }
 
     public ParticleSystem setEmissionPositionX(float x) {
-        mEmissionMinX = x;
-        mEmissionMaxX = x;
+        mEmissionX = x;
         return this;
     }
 
     public ParticleSystem setEmissionPositionY(float y) {
-        mEmissionMinY = y;
-        mEmissionMaxY = y;
+        mEmissionY = y;
         return this;
     }
 
@@ -114,78 +109,85 @@ public class ParticleSystem extends Entity implements Modifier.ModifierListener 
         return this;
     }
 
-    public ParticleSystem setDuration(long duration) {
-        mInitializers.add(new DurationParticleInitialize(duration));
+    public ParticleSystem setSpeedAngle(float speedMin, float speedMax) {
+        mInitializers.add(new SpeedAngleInitializer(speedMin * mPixelFactor,
+                speedMax * mPixelFactor, 0, 360));
         return this;
     }
 
-    public ParticleSystem setSpeedWithAngle(float minSpeed, float maxSpeed) {
-        mInitializers.add(new SpeedParticleInitializer(minSpeed, maxSpeed, 0, 360));
-        return this;
-    }
-
-    public ParticleSystem setSpeedWithAngle(float minSpeed, float maxSpeed, int minAngle, int maxAngle) {
-        mInitializers.add(new SpeedParticleInitializer(minSpeed, maxSpeed, minAngle, maxAngle));
+    public ParticleSystem setSpeedAngle(float speedMin, float speedMax, int minAngle, int maxAngle) {
+        mInitializers.add(new SpeedAngleInitializer(speedMin * mPixelFactor,
+                speedMax * mPixelFactor, minAngle, maxAngle));
         return this;
     }
 
     public ParticleSystem setSpeedX(float speedX) {
-        mInitializers.add(new SpeedXParticleInitializer(speedX, speedX));
+        mInitializers.add(new SpeedXInitializer(speedX * mPixelFactor, speedX * mPixelFactor));
         return this;
     }
 
-    public ParticleSystem setSpeedX(float minSpeedX, float maxSpeedX) {
-        mInitializers.add(new SpeedXParticleInitializer(minSpeedX, maxSpeedX));
+    public ParticleSystem setSpeedX(float speedMinX, float speedMaxX) {
+        mInitializers.add(new SpeedXInitializer(speedMinX * mPixelFactor, speedMaxX * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setSpeedY(float speedY) {
-        mInitializers.add(new SpeedYParticleInitializer(speedY, speedY));
+        mInitializers.add(new SpeedYInitializer(speedY * mPixelFactor, speedY * mPixelFactor));
         return this;
     }
 
-    public ParticleSystem setSpeedY(float minSpeedY, float maxSpeedY) {
-        mInitializers.add(new SpeedYParticleInitializer(minSpeedY, maxSpeedY));
+    public ParticleSystem setSpeedY(float speedMinY, float speedMaxY) {
+        mInitializers.add(new SpeedYInitializer(speedMinY * mPixelFactor, speedMaxY * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setAccelerationX(float accelerateX) {
-        mInitializers.add(new AccelerationXParticleInitializer(accelerateX, accelerateX));
+        mInitializers.add(new AccelerationXInitializer(accelerateX * mPixelFactor, accelerateX * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setAccelerationX(float minAccelerateX, float maxAccelerateX) {
-        mInitializers.add(new AccelerationXParticleInitializer(minAccelerateX, maxAccelerateX));
+        mInitializers.add(new AccelerationXInitializer(minAccelerateX * mPixelFactor, maxAccelerateX * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setAccelerationY(float accelerateY) {
-        mInitializers.add(new AccelerationYParticleInitializer(accelerateY, accelerateY));
+        mInitializers.add(new AccelerationYInitializer(accelerateY * mPixelFactor, accelerateY * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setAccelerationY(float minAccelerateY, float maxAccelerateY) {
-        mInitializers.add(new AccelerationYParticleInitializer(minAccelerateY, maxAccelerateY));
-        return this;
-    }
-
-    public ParticleSystem setInitialRotation(int angle) {
-        mInitializers.add(new RotationParticleInitializer(angle, angle));
+        mInitializers.add(new AccelerationYInitializer(minAccelerateY * mPixelFactor, maxAccelerateY * mPixelFactor));
         return this;
     }
 
     public ParticleSystem setInitialRotation(int minAngle, int maxAngle) {
-        mInitializers.add(new RotationParticleInitializer(minAngle, maxAngle));
-        return this;
-    }
-
-    public ParticleSystem setRotationSpeed(float rotationSpeed) {
-        mInitializers.add(new RotationSpeedParticleInitializer(rotationSpeed, rotationSpeed));
+        mInitializers.add(new RotationInitializer(minAngle, maxAngle));
         return this;
     }
 
     public ParticleSystem setRotationSpeed(float minRotationSpeed, float maxRotationSpeed) {
-        mInitializers.add(new RotationSpeedParticleInitializer(minRotationSpeed, maxRotationSpeed));
+        mInitializers.add(new RotationSpeedInitializer(minRotationSpeed, maxRotationSpeed));
+        return this;
+    }
+
+    public ParticleSystem setAlpha(float initialValue, float finalValue) {
+        mInitializers.add(new AlphaInitializer(initialValue, finalValue, 0));
+        return this;
+    }
+
+    public ParticleSystem setAlpha(float initialValue, float finalValue, long startDelay) {
+        mInitializers.add(new AlphaInitializer(initialValue, finalValue, startDelay));
+        return this;
+    }
+
+    public ParticleSystem setScale(float initialValue, float finalValue) {
+        mInitializers.add(new ScaleInitializer(initialValue, finalValue, 0));
+        return this;
+    }
+
+    public ParticleSystem setScale(float initialValue, float finalValue, long startDelay) {
+        mInitializers.add(new ScaleInitializer(initialValue, finalValue, startDelay));
         return this;
     }
 
@@ -194,134 +196,75 @@ public class ParticleSystem extends Entity implements Modifier.ModifierListener 
         return this;
     }
 
-    public ParticleSystem clearInitializer() {
+    public ParticleSystem clearInitializers() {
         mInitializers.clear();
         return this;
     }
 
-    public ParticleSystem setRotation(float startValue, float endValue) {
-        mModifiers.add(new RotationParticleModifier(startValue, endValue, 0));
-        return this;
+    public void emit() {
+        mIsEmitting = true;
+        mTotalTime = 0;
+        mCurrentDuration = 0;
     }
 
-    public ParticleSystem setRotation(float startValue, float endValue, long startDelay) {
-        mModifiers.add(new RotationParticleModifier(startValue, endValue, startDelay));
-        return this;
+    public void stopEmit() {
+        mIsEmitting = false;
     }
 
-    public ParticleSystem setScale(float startValue, float endValue) {
-        mModifiers.add(new ScaleParticleModifier(startValue, endValue, 0));
-        return this;
+    public void oneShot(float x, float y, int numParticles) {
+        mIsEmitting = false;
+        // We create particles based on the parameters
+        for (int i = 0; !mParticlePool.isEmpty() && i < numParticles; i++) {
+            addOneParticle(x, y);
+        }
     }
 
-    public ParticleSystem setScale(float startValue, float endValue, long startDelay) {
-        mModifiers.add(new ScaleParticleModifier(startValue, endValue, startDelay));
-        return this;
-    }
-
-    public ParticleSystem setAlpha(float startValue, float endValue) {
-        mModifiers.add(new AlphaParticleModifier(startValue, endValue, 0));
-        return this;
-    }
-
-    public ParticleSystem setAlpha(float startValue, float endValue, long startDelay) {
-        mModifiers.add(new AlphaParticleModifier(startValue, endValue, startDelay));
-        return this;
-    }
-
-    public ParticleSystem addModifier(ParticleModifier modifier) {
-        mModifiers.add(modifier);
-        return this;
-    }
-
-    public ParticleSystem clearModifier() {
-        mModifiers.clear();
-        return this;
-    }
-    //========================================================
-
-    //--------------------------------------------------------
-    // Overriding methods
-    //--------------------------------------------------------
     @Override
     public void onUpdate(long elapsedMillis) {
         if (!mIsEmitting) {
             return;
         }
-        // Update emission particle
         mTotalTime += elapsedMillis;
-        if (mTotalTime >= mEmissionRate) {
-            // Add one new particle
-            float emissionX = RandomUtils.nextFloat(mEmissionMinX, mEmissionMaxX);
-            float emissionY = RandomUtils.nextFloat(mEmissionMinY, mEmissionMaxY);
-            addOneParticle(emissionX, emissionY);
+        // Check is enough particles in pool, and time between particles
+        if (!mParticlePool.isEmpty() && mTotalTime >= mTimePerParticles) {
+            // Activate a new particle
+            updatePosition();
+            addOneParticle(mEmissionX, mEmissionY);
             mTotalTime = 0;
         }
-        mDurationModifier.update(this, elapsedMillis);
-    }
 
-    @Override
-    public void reset() {
-        super.reset();
-        mIsEmitting = false;
-        mEmissionRate = 1000 / RATE_NORMAL;
-        mEmissionDuration = INFINITE;
-        mDurationModifier.reset(this);
-        mTotalTime = 0;
-    }
-
-    @Override
-    public void dispose() {
-        super.dispose();
-        mParticlePool.release();
-        mInitializers.clear();
-        mModifiers.clear();
-    }
-
-    @Override
-    public void onModifierComplete() {
-        stopEmit();
-    }
-    //========================================================
-
-    //--------------------------------------------------------
-    // Methods
-    //--------------------------------------------------------
-    public void emit() {
-        mIsEmitting = true;
-        if (mEmissionDuration != INFINITE) {
-            mDurationModifier.setDuration(mEmissionDuration);
-            mDurationModifier.init(this);
+        // Update ParticleSystem duration
+        if (mDuration != 0) {
+            mCurrentDuration += elapsedMillis;
+            if (mCurrentDuration >= mDuration) {
+                stopEmit();
+                mCurrentDuration = 0;
+            }
         }
-        addToGame();
-        mTotalTime = 0;
     }
 
-    public void stopEmit() {
-        mIsEmitting = false;
-        mDurationModifier.reset(this);
-        removeFromGame();
-        mTotalTime = 0;
+    private void addOneParticle(float x, float y) {
+        Particle p = mParticlePool.remove(0);
+        int size = mInitializers.size();
+        for (int i = 0; i < size; i++) {
+            mInitializers.get(i).initParticle(p, mRandom);
+        }
+        p.activate(x, y, mLayer);
     }
 
-    public void oneShot(float x, float y, int count) {
-        for (int i = 0; i < count; i++) {
-            addOneParticle(x, y);
+    private void updatePosition() {
+        if (mEmissionMinX != mEmissionMaxX) {
+            // Generate random emit x position
+            mEmissionX = mRandom.nextFloat() * (mEmissionMaxX - mEmissionMinX) + mEmissionMinX;
+        }
+        if (mEmissionMinY != mEmissionMaxY) {
+            // Generate random emit Y position
+            mEmissionY = mRandom.nextFloat() * (mEmissionMaxY - mEmissionMinY) + mEmissionMinY;
         }
     }
 
     public void returnToPool(Particle particle) {
-        mParticlePool.returnObject(particle);
+        mParticlePool.add(particle);
     }
-
-    private void addOneParticle(float x, float y) {
-        Particle p = mParticlePool.obtainObject();
-        int size = mInitializers.size();
-        for (int i = 0; i < size; i++) {
-            mInitializers.get(i).initParticle(p);
-        }
-        p.activate(x, y, mLayer, mModifiers);
-    }
-    //========================================================
 
 }
